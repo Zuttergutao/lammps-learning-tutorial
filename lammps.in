@@ -1,0 +1,55 @@
+######################################
+# LAMMPS INPUT SCRIPT
+# Find minimum energy fcc (face-centered cubic) atomic configuration
+# Mark Tschopp
+# Syntax, lmp_exe < calc_fcc.in
+
+######################################
+# INITIALIZATION
+clear                  # 清除所有内存
+units metal            # 指定单位 metal使用A和eV
+dimension 3            # 三维晶胞
+boundary p p p         # 周期性边界 x y z
+atom_style atomic      
+atom_modify map array
+
+######################################
+# ATOM DEFINITION
+lattice fcc 4 orient x 1 1 0 orient y -1 1 0 orient z 0 0 1   # 定义晶格 晶格常数
+region box block 0 1 0 1 0 1 units lattice
+create_box 1 box
+create_atoms 1 box
+replicate 1 1 1     # 在每个方向复制周期性盒子
+
+######################################
+# DEFINE INTERATOMIC POTENTIAL
+pair_style eam/alloy 
+pair_coeff * * Al_zhou.eam.alloy Al
+neighbor 2.0 bin 
+neigh_modify delay 10 check yes 
+ 
+######################################
+# DEFINE COMPUTES 
+compute eng all pe/atom 
+compute eatoms all reduce sum c_eng 
+
+#####################################################
+# MINIMIZATION
+reset_timestep 0 
+fix 1 all box/relax iso 0.0 vmax 0.001
+thermo 10 
+thermo_style custom step pe lx ly lz press c_eatoms 
+min_style cg 
+minimize 1e-25 1e-25 5000 10000 
+
+variable natoms equal "count(all)" 
+variable teng equal "c_eatoms"
+variable length equal "lx"
+variable ecoh equal "v_teng/v_natoms"
+
+print "Total energy (eV) = ${teng};"
+print "Number of atoms = ${natoms};"
+print "Lattice constant (Angstoms) = ${length};"
+print "Cohesive energy (eV) = ${ecoh};"
+
+print "All done!"
